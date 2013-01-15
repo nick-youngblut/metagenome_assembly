@@ -1,0 +1,5 @@
+do{ my $x = {
+       'metagenome_assembly-*' => 1,
+       'blib' => 1
+     };
+$x; }
