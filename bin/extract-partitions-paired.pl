@@ -27,9 +27,54 @@ die " ERROR: provide a *part file\n" if ! $ARGV[0];
 
 
 ### MAIN
-find_pairs_and_write($ARGV[0]);
+my $basename = sort_pairs_count_part($ARGV[0]);
+count_parts($basename);
+
 
 ### Subroutines
+sub sort_pairs_count_part{
+# counting number of reads in each partition #
+	my ($infile) = @_;
+	
+	# I/O #
+	(my $basename = $infile) =~ s/\.[^\.]+$|$//;
+	open IN, $infile or die $!;
+	open PAIR, ">$basename-pair.fna" or die $!;
+	open SING, ">$basename-single.fna" or die $!;
+
+	my %pairs;
+	while(<IN>){
+		# status #
+		if(($. -1) % 100000 == 0){
+			print STDERR " lines processed: ", ($. - 1) / 2, "\n";
+			}
+		
+		# load lines #
+		my @line = split /\t|\//;		# header, pair, partition
+		my $nline = <IN>;
+
+		# checking for pairs; writing files #
+		if( exists $pairs{$line[0]} ){
+			print PAIR join("", $pairs{$line[0]}, @line, $nline);
+			delete $pairs{$line[0]};
+			}
+		else{
+			$pairs{$line[0]} = join("", @line, $nline);
+			}
+
+		}
+	close IN;
+	
+	# writing out all singletons #
+	print STDERR " Writing out all singletons\n";
+	print SING join("", values %pairs);
+	
+	close PAIR;
+	close SING;
+	
+	return $basename;
+	}
+
 sub find_pairs_and_write{
 	my $infile = shift;
 	
