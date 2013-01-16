@@ -29,6 +29,9 @@ die " ERROR: provide a *part file\n" if ! $ARGV[0];
 
 ### MAIN
 my $basename = sort_pairs($ARGV[0]);
+my $merge_hash_r = make_pair_merge_hash($basename);
+merge_merges($merge_hash_r);
+
 my $parts_r = count_parts($basename);
 my $groups_r = parts_in_groups($parts_r, $max_size, $min_part_size);
 write_groups($groups_r, $basename);
@@ -168,6 +171,101 @@ sub count_parts{
 
 
 	return \%parts;	
+	}
+
+sub merge_merges{
+# reciprically merging hashes until no more linkages found #
+	my ($merge_hash_r) = @_;
+
+	# status #
+	print STDERR " Merging partitions in merge hash\n";
+	
+	
+	my $N_group = scalar keys %$merge_hash_r;		# saving last group size (1-step memory)
+	
+	$merge_hash_r = merge_recip($merge_hash_r, $N_group);
+	
+	print Dumper $merge_hash_r; exit;
+	
+	## sub ##
+	sub merge_recip{
+	# reciprical merging #
+		my ($merge_hash_r, $N_group) = @_;
+	
+		
+		# merging if hash-lev1 value == hash-lev2 value (within any lev1 hash) #
+		foreach my $query (keys %$merge_hash_r){		# checking other hashes for $merge
+			my @to_merge;
+			foreach my $merge (keys %$merge_hash_r){				# going through each merge-group and checking for query
+				if( exists  $$merge_hash_r{$merge}{$query} ){		# could apply count number required HERE
+					push(@to_merge, $merge); 						# list of merge-groups to merge
+					next;
+					}
+				}
+			
+			if(@to_merge){
+				print Dumper scalar @to_merge; 
+				}
+			
+			# merging all merge-groups into the query group #
+			foreach my $merging (@to_merge){
+				foreach my $part (keys %{$$merge_hash_r{$merging}}){		# adding to the other group
+					$$merge_hash_r{$query}{$part} = $$merge_hash_r{$merging}{$part};
+					}
+				delete $$merge_hash_r{$merging}; 		# removing the original group
+				}
+			}
+			
+		# checking number of groups after merging #
+		my $N2_group = scalar keys %$merge_hash_r;
+		
+		# status #
+		print STDERR " B4_merge: $N_group; After_merge: $N2_group\n";
+		
+		# running again if less groups than before #
+		if($N2_group < $N_group){
+			merge_recip($merge_hash_r, $N2_group);
+			}
+		else{
+			return $merge_hash_r;
+			}
+		}
+	
+	}
+
+sub make_pair_merge_hash{
+# merging partitions based on paired-end reads #
+	my ($basename) = @_;
+	
+	# status #
+	print STDERR " Making merge hash\n";
+	
+	# reading pair file and making pair hash #
+	open PAIR, "$basename-pair.fna" or die $!;
+	
+	my %merge_hash;
+	while(<PAIR>){
+		# status #
+		if(($. -1) % $status_int == 0){
+			print STDERR " lines processed: ", ($. - 1) / 2, "\n";
+			}
+	
+		# loading lines #
+		my @line1 = split /\t/;
+		my $line2 = <PAIR>;
+		my @line3 = split /\t/, <PAIR>;
+		my $line4 = <PAIR>;
+		
+		# adding to merge hash #
+		if($line1[1] ne $line3[1]){		# comparing partitions for pairs and adding to partition merge
+			$merge_hash{$line1[1]}{$line3[1]}++;
+			}
+		
+		}
+	close PAIR;
+			
+		#print Dumper %merge_hash; exit;
+	return \%merge_hash;
 	}
 
 sub sort_pairs{
