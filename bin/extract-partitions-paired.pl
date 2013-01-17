@@ -29,8 +29,12 @@ die " ERROR: provide a *part file\n" if ! $ARGV[0];
 
 ### MAIN
 my $basename = sort_pairs($ARGV[0]);
-my $merge_hash_r = make_pair_merge_hash($basename);
-merge_merges($merge_hash_r);
+my ($connect_r, $max_connections, $names_r) = paired_connectivity($basename);
+write_names($basename, $names_r);
+$connect_r = normalize_connections($connect_r, $max_connections);
+write_connect_table($basename, $connect_r);
+exit;
+
 
 my $parts_r = count_parts($basename);
 my $groups_r = parts_in_groups($parts_r, $max_size, $min_part_size);
@@ -233,7 +237,49 @@ sub merge_merges{
 	
 	}
 
-sub make_pair_merge_hash{
+sub write_connect_table{
+# writing connectivity table (paired-ends spanning partitions) #
+	my ($basename, $connect_r) = @_;
+	
+	open OUT, ">$basename-pairnet.dist" or die $!;
+	
+	foreach my $part1 (keys %$connect_r){
+		foreach my $part2 (keys %{$$connect_r{$part1}}){
+			print OUT join("\t", $part1, $part2, $$connect_r{$part1}{$part2}), "\n";
+			}
+		}
+	close OUT;
+
+	}
+
+sub normalize_connections{
+#  normalizing connections by max connection #
+	my ($connect_r, $max_connections) = @_;
+	
+	foreach my $part1 (keys %$connect_r){
+		foreach my $part2 (keys %{$$connect_r{$part1}}){
+			$$connect_r{$part1}{$part2} = $$connect_r{$part1}{$part2} / $max_connections;
+			}
+		}
+
+		#print Dumper $connect_r; exit;
+	return $connect_r; 
+	}
+
+sub write_names{
+# writing names file #
+	my ($basename, $names_r) = @_;
+	
+	open OUT, ">$basename.names" or die $!;
+	
+	foreach (keys %$names_r){
+		print OUT join("\t", $_, $_), "\n";
+		}
+	
+	close OUT;
+	}
+
+sub paired_connectivity{
 # merging partitions based on paired-end reads #
 	my ($basename) = @_;
 	
@@ -242,9 +288,13 @@ sub make_pair_merge_hash{
 	
 	# reading pair file and making pair hash #
 	open PAIR, "$basename-pair.fna" or die $!;
+
 	
-	my %merge_hash;
+	my %connect;
+	my %names;
+	my $max_connections = 0;		# for normalizing connections
 	while(<PAIR>){
+		chomp;
 		# status #
 		if(($. -1) % $status_int == 0){
 			print STDERR " lines processed: ", ($. - 1) / 2, "\n";
@@ -253,19 +303,24 @@ sub make_pair_merge_hash{
 		# loading lines #
 		my @line1 = split /\t/;
 		my $line2 = <PAIR>;
-		my @line3 = split /\t/, <PAIR>;
+		my @line3 = split /\t|\n/, <PAIR>;
 		my $line4 = <PAIR>;
 		
 		# adding to merge hash #
 		if($line1[1] ne $line3[1]){		# comparing partitions for pairs and adding to partition merge
-			$merge_hash{$line1[1]}{$line3[1]}++;
+			$connect{$line1[1]}{$line3[1]}++;
+			$max_connections = $connect{$line1[1]}{$line3[1]} if $connect{$line1[1]}{$line3[1]} > $max_connections;
 			}
-		
+			
+		# adding to %names  for making a names file #
+		$names{$line1[1]} = 1;
+		$names{$line3[1]} = 1;
 		}
 	close PAIR;
-			
-		#print Dumper %merge_hash; exit;
-	return \%merge_hash;
+
+		#print Dumper $max_connections; exit;	
+		#print Dumper %connect; exit;
+	return \%connect, $max_connections, \%names;
 	}
 
 sub sort_pairs{
