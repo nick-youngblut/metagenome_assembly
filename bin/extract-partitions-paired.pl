@@ -8,6 +8,8 @@ use Data::Dumper;
 use Getopt::Long;
 use File::Spec;
 use File::Path qw/remove_tree/;
+use Graph;
+use Graph::Undirected;
 
 ### args/flags
 pod2usage("$0: No files given.") if ((@ARGV == 0) && (-t STDIN));
@@ -29,18 +31,80 @@ die " ERROR: provide a *part file\n" if ! $ARGV[0];
 
 ### MAIN
 my $basename = sort_pairs($ARGV[0]);
-my ($connect_r, $max_connections, $names_r) = paired_connectivity($basename);
-write_names($basename, $names_r);
-$connect_r = normalize_connections($connect_r, $max_connections);
-write_connect_table($basename, $connect_r);
+
+### making graph ###
+my $g = make_paired_graph($basename);
+merge_connected($g, $basename);
+
+### writing out Moth files ###
+#my ($connect_r, $max_connections, $names_r) = paired_connectivity($basename);
+#write_names($basename, $names_r);
+#$connect_r = normalize_connections($connect_r, $max_connections);
+#write_connect_table($basename, $connect_r);
 exit;
 
-
+### writing out groups ###
 my $parts_r = count_parts($basename);
 my $groups_r = parts_in_groups($parts_r, $max_size, $min_part_size);
 write_groups($groups_r, $basename);
 
 ### Subroutines
+sub merge_connected{
+# merging pairtitions connected by paired-end reads #
+	my ($g, $basename) = @_;
+
+	print STDERR " Finding connected components\n";
+	my @cc = $g->connected_components();
+	
+	# status #
+	print STDERR " Number of groups (connected partitions): ", scalar @cc, "\n";
+	#print STDERR " Merging 
+	
+	}
+
+sub make_paired_graph{
+# merging partitions based on paired-end reads #
+	my ($basename) = @_;
+	
+	# status #
+	print STDERR " Making graph\n";
+	
+	# reading pair file and making pair hash #
+	open PAIR, "$basename-pair.fna" or die $!;
+
+	# making graph object #
+	my $g = Graph::Undirected->new;
+
+	my $max_connections = 0;		# for normalizing connections
+	while(<PAIR>){
+		chomp;
+		# status #
+		if(($. -1) % $status_int == 0){
+			print STDERR " lines processed: ", ($. - 1) / 2, "\n";
+			}
+	
+		# loading lines #
+		my @line1 = split /\t/;
+		my $line2 = <PAIR>;
+		my @line3 = split /\t|\n/, <PAIR>;
+		my $line4 = <PAIR>;
+		
+		# adding to merge hash #
+		if($line1[1] ne $line3[1]){		# if partitions for pairs don't match, add to graph
+			$g->add_edge($line1[1], $line3[1]);
+			}
+			
+		}
+	close PAIR;
+
+		#print "The graph is $g\n";
+	# graph stats #
+	print STDERR " The graph has ", scalar $g->vertices, " vertices & ", scalar $g->edges, " edges\n";	
+	
+	return $g;
+	}
+
+
 sub write_groups{
 # writing out partitions in groups #
 	my ($groups_r, $basename) = @_;
