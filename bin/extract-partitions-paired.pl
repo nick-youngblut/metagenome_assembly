@@ -58,7 +58,16 @@ sub merge_connected{
 	
 	# status #
 	print STDERR " Number of groups (connected partitions): ", scalar @cc, "\n";
-	#print STDERR " Merging 
+	
+	# component size distribution #
+	print STDERR " Writting size distribution\n";
+	my %size_dist;
+	map{ $size_dist{scalar @$_}++ } @cc;
+	print "\n", join("\t", qw/N_partitions N_groups/), "\n";
+	foreach my $size (sort {$a <=> $b} keys %size_dist){
+		print join("\t", $size, $size_dist{$size}), "\n";
+		}
+	print "\n"; 
 	
 	}
 
@@ -103,6 +112,8 @@ sub make_paired_graph{
 	
 	return $g;
 	}
+
+
 
 
 sub write_groups{
@@ -240,6 +251,10 @@ sub count_parts{
 
 	return \%parts;	
 	}
+
+
+
+
 
 sub merge_merges{
 # reciprically merging hashes until no more linkages found #
