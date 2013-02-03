@@ -272,6 +272,7 @@ sub partition_connection_hash{
 	my $line_cnt = 0;
 	while(<PAIR>){
 		chomp;
+		
 		# status #
 		if(($line_cnt) % $status_int == 0){
 			print STDERR "\tRead pairs processed: ", ($line_cnt) / 2, "\n";
@@ -304,8 +305,9 @@ sub partition_connection_hash{
 	print STDERR "\n### Partition filtering stats ###\n";
 	print STDERR "Number of partitions: ", scalar keys %abunds, "\n";
 	print STDERR "Number of partitions < '-min' cutoff: $below_cnt\n";
+	print STDERR "Number of partitions remaining: ", (scalar keys %abunds) - $below_cnt, "\n";
 	print STDERR "% partitions remaining: ", 
-		sprintf("%.0f", ((scalar keys %abunds) - $below_cnt) / (scalar keys %abunds) * 100), "%\n\n";
+		sprintf("%.2f", ((scalar keys %abunds) - $below_cnt) / (scalar keys %abunds) * 100), "%\n\n";
 	
 		#print Dumper %connect; exit;			# partID => number of paired-end connections
 		#print Dumper %abunds; exit;
@@ -359,7 +361,7 @@ sub sort_pairs{
 	print STDERR "\n### Paired-reads stats ###\n";
 	print STDERR "Number of reads: $read_cnt\n";
 	print STDERR "Number of paired reads: ", $pair_cnt * 2, "\n";
-	print STDERR "% paired reads: ", sprintf("%.1f", ($pair_cnt * 2)/ $read_cnt * 100), "%\n\n";
+	print STDERR "% paired reads: ", sprintf("%.2f", ($pair_cnt * 2)/ $read_cnt * 100), "%\n\n";
 	
 	# writing out all singletons #
 	print STDERR "...Writing out all singletons\n";
