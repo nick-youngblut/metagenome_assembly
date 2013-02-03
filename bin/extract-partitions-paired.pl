@@ -8,7 +8,7 @@ use Data::Dumper;
 use Getopt::Long;
 use File::Spec;
 use File::Path qw/remove_tree/;
-use IPC::Open2;
+
 
 ### args/flags
 pod2usage("$0: No files given.") if ((@ARGV == 0) && (-t STDIN));
@@ -33,14 +33,14 @@ GetOptions(
 ### I/O error & defaults
 die " ERROR: provide a *part file\n" if ! $ARGV[0];
 
-### MAIN
-my $basename = sort_pairs($ARGV[0]);										# parsing out pairs
-my $connect_r = partition_connection_hash($basename);						# making a parition graph for loading into mcl
+### MAIN	
+my $basename = sort_pairs($ARGV[0]);													# parsing out pairs
+my ($connect_r, $abunds_r) = partition_connection_hash($basename, $min_part_size);		# making a parition graph for loading into mcl
 dump_connect_hash($connect_r, $basename) if $dump_connect;
-my $mcl_out = call_mcl($connect_r, $basename, $inflation, $threads);		# clustering w/ mcl
-#my $clusters_r = load_mcl_out($mcl_out);
-#my $groups = parts_in_groups($clusters_r, $max_size, $min_part_size)		# placing paritions into groups
-#write_groups($clusters_r, $basename);
+my $mcl_out = call_mcl($connect_r, $basename, $inflation, $threads);					# clustering w/ mcl
+my ($clusters_r, $cluster_abunds_r) = load_mcl_out($mcl_out, $abunds_r);
+my ($groups_r, $group_abunds_r) = parts_in_groups($clusters_r, $cluster_abunds_r, $max_size);				# placing paritions into groups
+write_groups($groups_r, $group_abunds_r, $basename);
 
 ### writing out groups ###
 #my $parts_r = count_parts($basename);
@@ -48,6 +48,60 @@ my $mcl_out = call_mcl($connect_r, $basename, $inflation, $threads);		# clusteri
 #write_groups($groups_r, $basename);
 
 ### Subroutines
+sub write_groups{
+# writing out groups (group => clusters => partitions) #
+	my ($groups_r, $group_abunds_r, $basename) = @_;
+	
+	# I/O #
+	## read paired-end reads ##
+	open PAIR, "$basename-pair.fna" or die $!;
+
+	## making directory for group files ##
+	remove_tree("$basename\_groups") if -d "$basename\_groups";
+	mkdir "$basename\_groups" or die $!;
+	my %outfh;
+	map{ open $outfh{$_}, ">$basename\_groups/$basename\_g$_.fna" or die $! } keys %$group_abunds_r;
+	
+	# writing to group files #
+	my %stats;
+	while(<PAIR>){
+
+		# loading lines #
+		my @pairs;
+		push( @pairs, split /\t|\n/ );
+		for my $i (0..2){
+			my $line = <PAIR>;
+			push( @pairs, split /\t|\n/, $line);
+			}
+			#print Dumper @pairs; exit;
+		
+		if(exists $$groups_r{$pairs[1]} && $$groups_r{$pairs[4]}){		# if partitions of pair are both in groups (i.e. > min partition cutoff)
+			if( $$groups_r{$pairs[1]} == $$groups_r{$pairs[4]} ){		# pair partitions are not in the same group
+				print {$outfh{ $$groups_r{ $pairs[1]} }} 
+					join("\n", join("\t", @pairs[0..1]), $pairs[2], join("\t", @pairs[3..4]), $pairs[5]), "\n";
+				}
+			else{
+				print STDERR "Different groups: ", join(" <-> ", $$groups_r{$pairs[1]}, $$groups_r{$pairs[4]}), "\n";
+				}
+			}
+		else{
+			print STDERR " Not found in a group: ", join("\t", @pairs[0..1]), "\n"
+				if ! exists $$groups_r{$pairs[1]};
+			print STDERR " Not found in a group: ", join("\t", @pairs[3..4]), "\n"
+				if ! exists $$groups_r{$pairs[4]};
+			}
+		#else{
+		#	push(@{stats{
+		#	}
+
+
+		}
+	
+	# closing #
+	close PAIR;
+	map{ close $outfh{$_} or die $! } keys %$group_abunds_r;
+	}
+
 sub dump_connect_hash{
 # writting out connected hash to file for running mcl outside of script #
 	my ($connect_r, $basename) = @_;
@@ -73,46 +127,55 @@ sub dump_connect_hash{
 	}
 
 sub parts_in_groups{
-# placing partitions in groups #
-	my ($parts_r, $max_size, $min_part_size) = @_;
+# placing partition clusters in groups based on max size #
+	my ($clusters_r, $cluster_abunds_r, $max_size) = @_;
 
  	# status #
-	print STDERR " Grouping partitions\n";
+	print STDERR " Grouping partition clusters\n";
 
-	# number of groups depends on $max_size
+	# grouping #
 	my %groups;
-	my $group_cnt;			# tracking total
-	foreach my $part (keys %$parts_r){
-		# filtering low abundant reads #
-		next if $$parts_r{$part} < $min_part_size;
+	my %group_abunds;
+	my $group_cnt = 0;
+	foreach my $cID (keys %$cluster_abunds_r){
+		$group_cnt += $$cluster_abunds_r{$cID};						# summing cluster abundances, groupID defined by max_size
 		
-		# loading groups #
-		$group_cnt += $$parts_r{$part};
-		$groups{$part} = int($group_cnt / $max_size);		# part -> group_number
+		foreach my $part (keys %{$$clusters_r{$cID}} ){				# all partitions in cluster
+			my $gID = int($group_cnt / $max_size);
+			$groups{$part} = $gID; 			# partition => group
+			$group_abunds{$gID}++; 			# summing groups
+			}
 		}
-	
-	return \%groups;
-	}
 
+	# status #
+	print STDERR " Number of groups: ", scalar keys %group_abunds, "\n";
+	die " ERROR: Number of groups exceeds 1000\n" if (scalar keys %group_abunds) > 1000;
+	
+		#print Dumper %groups; exit;
+	return \%groups, \%group_abunds;			# partition => group
+	}
 
 sub load_mcl_out{
 # loading mcl output into a hash #
-	my ($mcl_out) = @_;
+	my ($mcl_out, $abunds_r) = @_;
 	
 	# status #
 	print STDERR " Loading mcl output\n";
 	
 	open IN, $mcl_out or die $!;
 	my %clusters;
+	my %cluster_abunds;
 	while(<IN>){
 		chomp;
 		my @line = split /\t/;
-		map{ $clusters{$_} = $. } @line;			# all partitions in cluster pointing to clsuter ID
+		map{ $clusters{$.}{$_} = 1 } @line;			# all clusterID => partID
+		map{ $cluster_abunds{$.} += $$abunds_r{$_} } @line;		# clusterID => sum(partitions abundances)
 		}
 	close IN;
 	
+		#print Dumper %cluster_abunds; exit;
 		#print Dumper %clusters; exit;
-	return \%clusters;
+	return \%clusters, \%cluster_abunds;				# partition => clusterID
 	}
 
 sub call_mcl{
@@ -142,17 +205,19 @@ sub call_mcl{
 
 sub partition_connection_hash{
 # merging partitions based on paired-end reads #
-	my ($basename) = @_;
+# getting abundances of each partition #
+	my ($basename, $min_part_size) = @_;
 	
 	# status #
-	print STDERR " Making connectedness hash\n";
+	print STDERR " Getting partition abundances\n";
 	
 	# reading pair file and making pair hash #
 	open PAIR, "$basename-pair.fna" or die $!;
 
 	# making connectedness hash #
 	#my $max_connections = 0;		# for normalizing connections
-	my %connect;
+	my %abunds;
+
 	while(<PAIR>){
 		chomp;
 		# status #
@@ -166,15 +231,49 @@ sub partition_connection_hash{
 		my @line3 = split /\t|\n/, <PAIR>;
 		my $line4 = <PAIR>;
 		
-		# adding to merge hash #
-		$connect{$line1[1]}{$line3[1]}++ if $line1[1] ne $line3[1];
-			
+		# summing paritition abundances #
+		$abunds{$line1[1]}++;					# number of reads per partition
+		$abunds{$line3[1]}++;
+		
 		}
+	
+	seek(PAIR, 0, 0);
+
+	# status #
+	print STDERR " Making connectedness hash\n";
+
+	my %connect;
+	my $min_part_size_cnt = 0;
+	while(<PAIR>){
+		chomp;
+		# status #
+		if(($. -1) % $status_int == 0){
+			print STDERR " Read pairs processed: ", ($. - 1) / 2, "\n";
+			}
+	
+		# loading lines #
+		my @line1 = split /\t/;
+		my $line2 = <PAIR>;
+		my @line3 = split /\t|\n/, <PAIR>;
+		my $line4 = <PAIR>;
+		
+		# summing paritition abundances; not including partition if < min abundance #
+		#$connect{$line1[1]}{$line3[1]}++ if $abunds{$line1[1]} >= $min_part_size && 
+		#	$abunds{$line3[1]} >= $min_part_size && $line1[1] != $line3[1];
+		if ($abunds{$line1[1]} >= $min_part_size && $abunds{$line3[1]} >= $min_part_size){
+			$connect{$line1[1]}{$line3[1]}++ ;
+			}
+		else{ $min_part_size_cnt++; }		# counting partitions not included due to min_part_size
+		}
+
 	close PAIR;
-
+	
+	# stats #
+	print STDERR " Number of read pairs not included due to '-min' cutoff: $min_part_size_cnt\n";
+	
 		#print Dumper %connect; exit;
-
-	return \%connect;
+		#print Dumper %abunds; exit;
+	return \%connect, \%abunds;
 	}
 
 sub sort_pairs{
@@ -191,10 +290,7 @@ sub sort_pairs{
 	open SING, ">$basename-single.fna" or die $!;
 
 	my %pairs;
-	while(<IN>){
-		
-		#last if $. > 10000;
-		
+	while(<IN>){	
 		# status #
 		if(($. -1) % $status_int == 0){
 			print STDERR " Reads processed: ", ($. - 1) / 2, "\n";
@@ -227,7 +323,6 @@ sub sort_pairs{
 	
 	return $basename;
 	}
-
 
 
 __END__
