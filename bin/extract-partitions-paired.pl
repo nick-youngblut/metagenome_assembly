@@ -81,9 +81,8 @@ sub write_groups{
 			my $line = <PAIR>;
 			push( @pairs, split /\t|\n/, $line);
 			}
-			#print Dumper @pairs; exit;
 		
-		if(exists $$groups_r{$pairs[1]} && $$groups_r{$pairs[4]}){		# if partitions of pair are both in groups (i.e. > min partition cutoff)
+		if(exists $$groups_r{$pairs[1]} && exists $$groups_r{$pairs[4]}){		# if partitions of pair are both in groups (i.e. > min partition cutoff)
 			if( $$groups_r{$pairs[1]} == $$groups_r{$pairs[4]} ){		# pair partitions are not in the same group
 				print {$outfh{ $$groups_r{ $pairs[1]} }} 
 					join("\n", join("\t", @pairs[0..1]), $pairs[2], join("\t", @pairs[3..4]), $pairs[5]), "\n";
@@ -245,7 +244,6 @@ sub partition_connection_hash{
 	# making connectedness hash #
 	#my $max_connections = 0;		# for normalizing connections
 	my %abunds;
-
 	while(<PAIR>){
 		chomp;
 		# status #
@@ -271,11 +269,12 @@ sub partition_connection_hash{
 	print STDERR "...Making connectedness hash\n";
 
 	my %connect;
+	my $line_cnt = 0;
 	while(<PAIR>){
 		chomp;
 		# status #
-		if(($. -1) % $status_int == 0){
-			print STDERR "\tRead pairs processed: ", ($. - 1) / 2, "\n";
+		if(($line_cnt) % $status_int == 0){
+			print STDERR "\tRead pairs processed: ", ($line_cnt) / 2, "\n";
 			}
 	
 		# loading lines #
@@ -288,6 +287,9 @@ sub partition_connection_hash{
 		if ($abunds{$line1[1]} >= $min_part_size && $abunds{$line3[1]} >= $min_part_size){
 			$connect{$line1[1]}{$line3[1]}++ ;
 			}
+		
+		# reads processed
+		$line_cnt += 4;
 		}
 
 	close PAIR;
@@ -324,7 +326,11 @@ sub sort_pairs{
 	open SING, ">$basename-single.fna" or die $!;
 
 	my %pairs;
+	my $pair_cnt = 0;			# counting number of pairs
+	my $read_cnt = 0;			# total number of reads
 	while(<IN>){	
+		$read_cnt++;
+		
 		# status #
 		if(($. -1) % $status_int == 0){
 			print STDERR "\tReads processed: ", ($. - 1) / 2, "\n";
@@ -340,6 +346,7 @@ sub sort_pairs{
 		if( exists $pairs{$line[0]} ){
 			print PAIR join("", $pairs{$line[0]}, join("/", @line), $nline);
 			delete $pairs{$line[0]};
+			$pair_cnt++;
 			}
 		else{
 			$pairs{$line[0]} = join("", join("/", @line), $nline);
@@ -347,6 +354,12 @@ sub sort_pairs{
 
 		}
 	close IN;
+	
+	# stats #
+	print STDERR "\n### Paired-reads stats ###\n";
+	print STDERR "Number of reads: $read_cnt\n";
+	print STDERR "Number of paired reads: ", $pair_cnt * 2, "\n";
+	print STDERR "% paired reads: ", sprintf("%.1f", ($pair_cnt * 2)/ $read_cnt * 100), "%\n\n";
 	
 	# writing out all singletons #
 	print STDERR "...Writing out all singletons\n";
@@ -437,9 +450,9 @@ happens.
 
 extract-partitions-paired.pl iowa-corn-50m.fa.gz.part
 
-=head2 More output
+=head2 Dumping table for mcl clustering
 
-extract-partitions-paired.pl -a -d iowa-corn-50m.fa.gz.part
+extract-partitions-paired.pl -d iowa-corn-50m.fa.gz.part
 
 =head1 AUTHOR
 

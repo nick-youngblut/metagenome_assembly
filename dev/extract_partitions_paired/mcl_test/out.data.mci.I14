@@ -1,0 +1,9 @@
+# cline: mcl data.mci "-I" "1.4"
+(mclheader
+mcltype matrix
+dimensions 7x1
+)
+(mclmatrix
+begin
+0 0 1 2 3 4 5 6 $
+)

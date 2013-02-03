@@ -1,0 +1,389 @@
+ Splitting reads into pairs and singletons
+ lines processed: 0
+ lines processed: 500000
+ lines processed: 1000000
+ lines processed: 1500000
+ lines processed: 2000000
+ lines processed: 2500000
+ lines processed: 3000000
+ lines processed: 3500000
+ lines processed: 4000000
+ lines processed: 4500000
+ lines processed: 5000000
+ lines processed: 5500000
+ lines processed: 6000000
+ lines processed: 6500000
+ lines processed: 7000000
+ lines processed: 7500000
+ lines processed: 8000000
+ lines processed: 8500000
+ lines processed: 9000000
+ lines processed: 9500000
+ lines processed: 10000000
+ lines processed: 10500000
+ lines processed: 11000000
+ lines processed: 11500000
+ lines processed: 12000000
+ lines processed: 12500000
+ lines processed: 13000000
+ lines processed: 13500000
+ lines processed: 14000000
+ lines processed: 14500000
+ lines processed: 15000000
+ lines processed: 15500000
+ lines processed: 16000000
+ lines processed: 16500000
+ lines processed: 17000000
+ lines processed: 17500000
+ lines processed: 18000000
+ lines processed: 18500000
+ lines processed: 19000000
+ lines processed: 19500000
+ lines processed: 20000000
+ lines processed: 20500000
+ lines processed: 21000000
+ lines processed: 21500000
+ lines processed: 22000000
+ lines processed: 22500000
+ lines processed: 23000000
+ lines processed: 23500000
+ lines processed: 24000000
+ lines processed: 24500000
+ lines processed: 25000000
+ lines processed: 25500000
+ lines processed: 26000000
+ lines processed: 26500000
+ lines processed: 27000000
+ lines processed: 27500000
+ lines processed: 28000000
+ lines processed: 28500000
+ lines processed: 29000000
+ lines processed: 29500000
+ lines processed: 30000000
+ lines processed: 30500000
+ lines processed: 31000000
+ lines processed: 31500000
+ lines processed: 32000000
+ lines processed: 32500000
+ lines processed: 33000000
+ lines processed: 33500000
+ lines processed: 34000000
+ lines processed: 34500000
+ lines processed: 35000000
+ lines processed: 35500000
+ lines processed: 36000000
+ lines processed: 36500000
+ lines processed: 37000000
+ lines processed: 37500000
+ lines processed: 38000000
+ lines processed: 38500000
+ lines processed: 39000000
+ lines processed: 39500000
+ lines processed: 40000000
+ lines processed: 40500000
+ Writing out all singletons
+ Making merge hash
+ lines processed: 0
+ lines processed: 500000
+ lines processed: 1000000
+ lines processed: 1500000
+ lines processed: 2000000
+ lines processed: 2500000
+ lines processed: 3000000
+ lines processed: 3500000
+ lines processed: 4000000
+ lines processed: 4500000
+ lines processed: 5000000
+ lines processed: 5500000
+ lines processed: 6000000
+ lines processed: 6500000
+ lines processed: 7000000
+ lines processed: 7500000
+ lines processed: 8000000
+ lines processed: 8500000
+ lines processed: 9000000
+ lines processed: 9500000
+ lines processed: 10000000
+ lines processed: 10500000
+ lines processed: 11000000
+ lines processed: 11500000
+ lines processed: 12000000
+ lines processed: 12500000
+ lines processed: 13000000
+ lines processed: 13500000
+ lines processed: 14000000
+ lines processed: 14500000
+ lines processed: 15000000
+ lines processed: 15500000
+ lines processed: 16000000
+ lines processed: 16500000
+ lines processed: 17000000
+ lines processed: 17500000
+ lines processed: 18000000
+ lines processed: 18500000
+ lines processed: 19000000
+ lines processed: 19500000
+ lines processed: 20000000
+ lines processed: 20500000
+ lines processed: 21000000
+ lines processed: 21500000
+ lines processed: 22000000
+ lines processed: 22500000
+ lines processed: 23000000
+ lines processed: 23500000
+ lines processed: 24000000
+ lines processed: 24500000
+ lines processed: 25000000
+ lines processed: 25500000
+ lines processed: 26000000
+ lines processed: 26500000
+ lines processed: 27000000
+ lines processed: 27500000
+ lines processed: 28000000
+ lines processed: 28500000
+ lines processed: 29000000
+ lines processed: 29500000
+ lines processed: 30000000
+ lines processed: 30500000
+ lines processed: 31000000
+ lines processed: 31500000
+ lines processed: 32000000
+ lines processed: 32500000
+ lines processed: 33000000
+ The graph has 19416990 vertices & 11430070 edges
+fin   ^C^C^C Splitting reads into pairs and singletons
+ lines processed: 0
+ lines processed: 500000
+ lines processed: 1000000
+ lines processed: 1500000
+ lines processed: 2000000
+ lines processed: 2500000
+ lines processed: 3000000
+ lines processed: 3500000
+ lines processed: 4000000
+ lines processed: 4500000
+ lines processed: 5000000
+ lines processed: 5500000
+ lines processed: 6000000
+ lines processed: 6500000
+ lines processed: 7000000
+ lines processed: 7500000
+ lines processed: 8000000
+ lines processed: 8500000
+ lines processed: 9000000
+ lines processed: 9500000
+ lines processed: 10000000
+ lines processed: 10500000
+ lines processed: 11000000
+ lines processed: 11500000
+ lines processed: 12000000
+ lines processed: 12500000
+ lines processed: 13000000
+ lines processed: 13500000
+ lines processed: 14000000
+ lines processed: 14500000
+ lines processed: 15000000
+ lines processed: 15500000
+ lines processed: 16000000
+ lines processed: 16500000
+ lines processed: 17000000
+ lines processed: 17500000
+ lines processed: 18000000
+ lines processed: 18500000
+ lines processed: 19000000
+ lines processed: 19500000
+ lines processed: 20000000
+ lines processed: 20500000
+ lines processed: 21000000
+ lines processed: 21500000
+ lines processed: 22000000
+ lines processed: 22500000
+ lines processed: 23000000
+ lines processed: 23500000
+ lines processed: 24000000
+ lines processed: 24500000
+ lines processed: 25000000
+ lines processed: 25500000
+ lines processed: 26000000
+ lines processed: 26500000
+ lines processed: 27000000
+ lines processed: 27500000
+ lines processed: 28000000
+ lines processed: 28500000
+ lines processed: 29000000
+ lines processed: 29500000
+ lines processed: 30000000
+ lines processed: 30500000
+ lines processed: 31000000
+ lines processed: 31500000
+ lines processed: 32000000
+ lines processed: 32500000
+ lines processed: 33000000
+ lines processed: 33500000
+ lines processed: 34000000
+ lines processed: 34500000
+ lines processed: 35000000
+ lines processed: 35500000
+ lines processed: 36000000
+ lines processed: 36500000
+ lines processed: 37000000
+ lines processed: 37500000
+ lines processed: 38000000
+ lines processed: 38500000
+ lines processed: 39000000
+ lines processed: 39500000
+ lines processed: 40000000
+ lines processed: 40500000
+ Writing out all singletons
+ Making connectedness hash
+ Read pairs processed: 0
+ Read pairs processed: 500000
+ Read pairs processed: 1000000
+ Read pairs processed: 1500000
+ Read pairs processed: 2000000
+ Read pairs processed: 2500000
+ Read pairs processed: 3000000
+ Read pairs processed: 3500000
+ Read pairs processed: 4000000
+ Read pairs processed: 4500000
+ Read pairs processed: 5000000
+ Read pairs processed: 5500000
+ Read pairs processed: 6000000
+ Read pairs processed: 6500000
+ Read pairs processed: 7000000
+ Read pairs processed: 7500000
+ Read pairs processed: 8000000
+ Read pairs processed: 8500000
+ Read pairs processed: 9000000
+ Read pairs processed: 9500000
+ Read pairs processed: 10000000
+ Read pairs processed: 10500000
+ Read pairs processed: 11000000
+ Read pairs processed: 11500000
+ Read pairs processed: 12000000
+ Read pairs processed: 12500000
+ Read pairs processed: 13000000
+ Read pairs processed: 13500000
+ Read pairs processed: 14000000
+ Read pairs processed: 14500000
+ Read pairs processed: 15000000
+ Read pairs processed: 15500000
+ Read pairs processed: 16000000
+ Read pairs processed: 16500000
+ Read pairs processed: 17000000
+ Read pairs processed: 17500000
+ Read pairs processed: 18000000
+ Read pairs processed: 18500000
+ Read pairs processed: 19000000
+ Read pairs processed: 19500000
+ Read pairs processed: 20000000
+ Read pairs processed: 20500000
+ Read pairs processed: 21000000
+ Read pairs processed: 21500000
+ Read pairs processed: 22000000
+ Read pairs processed: 22500000
+ Read pairs processed: 23000000
+ Read pairs processed: 23500000
+ Read pairs processed: 24000000
+ Read pairs processed: 24500000
+ Read pairs processed: 25000000
+ Read pairs processed: 25500000
+ Read pairs processed: 26000000
+ Read pairs processed: 26500000
+ Read pairs processed: 27000000
+ Read pairs processed: 27500000
+ Read pairs processed: 28000000
+ Read pairs processed: 28500000
+ Read pairs processed: 29000000
+ Read pairs processed: 29500000
+ Read pairs processed: 30000000
+ Read pairs processed: 30500000
+ Read pairs processed: 31000000
+ Read pairs processed: 31500000
+ Read pairs processed: 32000000
+ Read pairs processed: 32500000
+ Read pairs processed: 33000000
+ Calling mcl
+mcl - --abc -I 2 -te 12 -o iowa-corn-50m.fa.gz_mcl.txt
+.................................................. 1M
+.................................................. 2M
+.................................................. 3M
+.................................................. 4M
+.................................................. 5M
+.................................................. 6M
+.................................................. 7M
+.................................................. 8M
+.................................................. 9M
+.................................................. 10M
+.................................................. 11M
+.................................................. 12M
+.....
+[stream] maxc=19416989 maxr=19416989
+[mcl] new tab created
+[mcl] pid 22232
+ ite   chaos  time hom(avg,lo,hi) expa expb expc fmv
+  1   432.99 32962.85 1.01/0.00/1.78 4585.63 20.14 20.14   0
+  2    31.33 78948.42 0.94/0.26/1.56 24.05 0.08 1.57   2
+  3     8.15 2753.72 0.93/0.24/2.17 1.57 0.82 1.29   0
+  4     4.03 2813.21 0.96/0.22/2.34 1.19 0.87 1.12   0
+  5     2.85 2851.00 0.98/0.23/2.21 1.06 0.90 1.01   0
+  6     2.00 2813.84 0.99/0.24/1.81 1.02 0.86 0.87   0
+  7     1.65 2808.65 1.00/0.24/1.87 1.02 0.95 0.83   0
+  8     1.51 2842.39 1.00/0.29/1.70 1.00 0.98 0.81   0
+  9     1.33 2764.12 1.00/0.32/1.68 1.00 0.99 0.81   0
+ 10     1.47 2727.34 1.00/0.28/1.43 1.00 1.00 0.80   0
+ 11     0.92 2794.93 1.00/0.43/1.34 1.00 1.00 0.80   0
+ 12     1.13 2839.67 1.00/0.42/1.33 1.00 1.00 0.80   0
+ 13     0.97 2787.54 1.00/0.53/1.34 1.00 1.00 0.80   0
+ 14     0.67 2818.87 1.00/0.53/1.35 1.00 1.00 0.80   0
+ 15     0.67 2830.04 1.00/0.53/1.29 1.00 1.00 0.80   0
+ 16     0.67 2754.42 1.00/0.54/1.17 1.00 1.00 0.80   0
+ 17     0.67 2798.23 1.00/0.60/1.22 1.00 1.00 0.80   0
+ 18     0.67 2842.60 1.00/0.53/1.09 1.00 1.00 0.80   0
+ 19     0.67 2761.50 1.00/0.55/1.00 1.00 1.00 0.80   0
+ 20     0.67 2820.94 1.00/0.76/1.00 1.00 1.00 0.80   0
+ 21     0.67 2737.32 1.00/0.63/1.00 1.00 1.00 0.80   0
+ 22     0.67 2757.61 1.00/0.63/1.00 1.00 1.00 0.80   0
+ 23     0.67 2799.78 1.00/0.76/1.00 1.00 1.00 0.80   0
+ 24     0.68 2787.58 1.00/0.76/1.00 1.00 1.00 0.80   0
+ 25     0.68 2831.74 1.00/0.79/1.00 1.00 1.00 0.80   0
+ 26     0.68 2733.62 1.00/0.76/1.00 1.00 1.00 0.80   0
+ 27     0.68 2723.22 1.00/0.76/1.00 1.00 1.00 0.80   0
+ 28     0.68 2762.70 1.00/0.84/1.00 1.00 1.00 0.80   0
+ 29     0.68 2753.82 1.00/0.76/1.00 1.00 1.00 0.80   0
+ 30     0.68 2873.32 1.00/0.86/1.00 1.00 1.00 0.80   0
+ 31     0.68 2816.85 1.00/0.98/1.00 1.00 1.00 0.80   0
+ 32     0.68 2821.65 1.00/1.00/1.00 1.00 1.00 0.80   0
+ 33     0.69 2777.54 1.00/1.00/1.00 1.00 1.00 0.80   0
+ 34     0.69 2810.46 1.00/1.00/1.00 1.00 1.00 0.80   0
+ 35     0.69 2835.95 1.00/1.00/1.00 1.00 1.00 0.80   0
+ 36     0.69 2766.80 1.00/1.00/1.00 1.00 1.00 0.80   0
+ 37     0.69 2808.12 1.00/1.00/1.00 1.00 1.00 0.80   0
+ 38     0.69 2850.39 1.00/1.00/1.00 1.00 1.00 0.80   0
+ 39     0.70 2821.35 1.00/1.00/1.00 1.00 1.00 0.80   0
+ 40     0.70 2767.52 1.00/1.00/1.00 1.00 1.00 0.80   0
+ 41     0.70 2793.50 1.00/1.00/1.00 1.00 1.00 0.80   0
+ 42     0.70 2686.60 1.00/1.00/1.00 1.00 1.00 0.80   0
+ 43     0.70 2772.16 1.00/1.00/1.00 1.00 1.00 0.80   0
+ 44     0.71 2805.79 1.00/1.00/1.00 1.00 1.00 0.80   0
+ 45     0.71 2783.51 1.00/1.00/1.00 1.00 1.00 0.80   0
+ 46     0.71 2768.63 1.00/1.00/1.00 1.00 1.00 0.80   0
+ 47     0.71 2878.16 1.00/1.00/1.00 1.00 1.00 0.80   0
+ 48     0.72 2659.87 1.00/1.00/1.00 1.00 1.00 0.80   0
+ 49     0.72 2775.45 1.00/1.00/1.00 1.00 1.00 0.80   0
+ 50     0.72 2789.86 1.00/1.00/1.00 1.00 1.00 0.80   0
+ 51     0.73 2811.72 1.00/0.99/1.00 1.00 1.00 0.80   0
+ 52     0.73 2773.51 1.00/0.99/1.00 1.00 1.00 0.80   0
+ 53     0.74 2783.44 1.00/0.99/1.00 1.00 1.00 0.80   0
+ 54     0.74 2774.62 1.00/0.99/1.00 1.00 1.00 0.80   0
+ 55     0.75 2840.80 1.00/0.99/1.00 1.00 1.00 0.80   0
+ 56     0.76 2783.03 1.00/0.99/1.00 1.00 1.00 0.80   0
+ 57     0.76 2815.87 1.00/0.99/1.00 1.00 1.00 0.80   0
+ 58     0.77 2810.61 1.00/0.99/1.00 1.00 1.00 0.80   0
+ 59     0.78 2853.90 1.00/0.99/1.00 1.00 1.00 0.80   0
+ 60     0.79 2775.01 1.00/0.99/1.00 1.00 1.00 0.80   0
+ 61     0.81 2791.00 1.00/0.98/1.00 1.00 1.00 0.80   0
+ 62     0.82 2711.74 1.00/0.98/1.00 1.00 1.00 0.80   0
+ 63     0.84 2768.63 1.00/0.98/1.00 1.00 1.00 0.80   0
+ 64     0.87 2776.97 1.00/0.97/1.00 1.00 1.00 0.80   0
+ 65  ^C
