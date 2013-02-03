@@ -13,7 +13,7 @@ use IPC::Open2;
 ### args/flags
 pod2usage("$0: No files given.") if ((@ARGV == 0) && (-t STDIN));
 
-my ($verbose);
+my ($verbose, $dump_connect);
 my $max_size = 1000000;
 my $min_part_size = 10;
 my $status_int = 1000000;
@@ -22,9 +22,10 @@ my $threads = 1;
 GetOptions(
 	   "max-size=i" => \$max_size,						# max group size
 	   "min-partition-size=i" => \$min_part_size,		# min partition size worth keeping
-	   "status=i" => \$status_int,						# how often to provide a status update
-	   "inflation=f" => \$inflation,					# mcl inflation param
-	   "threads=i" => \$threads,						# number of threads for mcl
+	   "status=i" => \$status_int,						# mcl inflation param
+	   "threads=i" => \$threads,						# how often to provide a status update
+	   "inflation=f" => \$inflation,					# number of threads for mcl
+	   "dump" => \$dump_connect,						# dumping connected graph (for running mcl outside of script)
 	   "verbose" => \$verbose,
 	   "help|?" => \&pod2usage # Help
 	   );
@@ -35,10 +36,11 @@ die " ERROR: provide a *part file\n" if ! $ARGV[0];
 ### MAIN
 my $basename = sort_pairs($ARGV[0]);										# parsing out pairs
 my $connect_r = partition_connection_hash($basename);						# making a parition graph for loading into mcl
+dump_connect_hash($connect_r, $basename) if $dump_connect;
 my $mcl_out = call_mcl($connect_r, $basename, $inflation, $threads);		# clustering w/ mcl
-my $clusters_r = load_mcl_out($mcl_out);
-my $groups = parts_in_groups($clusters_r, $max_size, $min_part_size)		# placing paritions into groups
-write_groups($clusters_r, $basename);
+#my $clusters_r = load_mcl_out($mcl_out);
+#my $groups = parts_in_groups($clusters_r, $max_size, $min_part_size)		# placing paritions into groups
+#write_groups($clusters_r, $basename);
 
 ### writing out groups ###
 #my $parts_r = count_parts($basename);
@@ -46,71 +48,28 @@ write_groups($clusters_r, $basename);
 #write_groups($groups_r, $basename);
 
 ### Subroutines
-sub write_groups{
-# writing out partitions in groups #
-	my ($clusters_r, $basename) = @_;
+sub dump_connect_hash{
+# writting out connected hash to file for running mcl outside of script #
+	my ($connect_r, $basename) = @_;
+
+	# making an output file name #
+	my $dump_out = $basename . "_abc.txt";
 	
 	# status #
-	print STDERR " Writing out group files\n";
+	print STDERR " Dumping partition connection hash: '$dump_out'\n";
 	
+	open OUT, ">$dump_out" or die $!;
 	
-
-	# output dir #
-	my $dirname = $basename . "_groups";
-	remove_tree("$dirname") if -d "$dirname";		# removing old dir if present
-	mkdir "$dirname"; 
-	print STDERR " Writing files to: $dirname\n";
-
-	# status #
-	print STDERR " Writting out paired reads\n";
+	# running mcl #
+	foreach my $c1 (keys %$connect_r){
+		foreach my $c2 (keys %{$$connect_r{$c1}}){
+			print OUT join(" ", $c1, $c2, $$connect_r{$c1}{$c2}), "\n";
+			}
+		}	
+	close OUT;
 	
-	# opening filehandles for each group #
-	my %fh;
-	foreach my $group (keys %ugroups){
-		open $fh{$group}, ">$dirname/group$group-pair.fna" or die $!;
-		}
-	
-	# going through paired reads and writing to group #
-	open PAIR, "$basename-pair.fna" or die $!;
-	while(<PAIR>){
-		my @line = split /\t/;
-		my $line2 = <PAIR>;
-		my $line3 = <PAIR>;
-		my $line4 = <PAIR>;
-		
-		# 2nd pair placed w/ first #
-		next if ! exists $$groups_r{$line[1]}; 		# if read is < cutoff
-		print {$fh{ $$groups_r{$line[1]} }} join("", join("\t", @line), $line2, $line3, $line4);
-		}
-
-	# closing filehandles #
-	close PAIR;
-	map{ close $fh{$_} } keys %fh;
-	
-	
-	# status #
-	print STDERR " Writting out singleton reads\n";
-	
-	# going through singletons #
-	foreach my $group (keys %ugroups){
-		open $fh{$group}, ">$dirname/group$group-single.fna" or die $!;
-		}
-	
-	# going through paired reads and writing to group #
-	open SING, "$basename-single.fna" or die $!;
-	while(<SING>){
-		my @line = split /\t/;
-		my $line2 = <SING>;
-		
-		next if ! exists $$groups_r{$line[1]}; 		# if read is < cutoff
-		print {$fh{ $$groups_r{$line[1]} }} join("", join("\t", @line), $line2);
-		}
-	
-	
-	# closing filehandles #
-	close SING;
-	map{ close $fh{$_} } keys %fh;
-	
+	print STDERR " Connection hash dumped. Exiting\n";
+	exit;
 	}
 
 sub parts_in_groups{
@@ -218,7 +177,6 @@ sub partition_connection_hash{
 	return \%connect;
 	}
 
-
 sub sort_pairs{
 # parsing out existing paired-end reads #
 	my ($infile) = @_;
@@ -239,7 +197,7 @@ sub sort_pairs{
 		
 		# status #
 		if(($. -1) % $status_int == 0){
-			print STDERR " lines processed: ", ($. - 1) / 2, "\n";
+			print STDERR " Reads processed: ", ($. - 1) / 2, "\n";
 			}
 		
 		# load lines #
