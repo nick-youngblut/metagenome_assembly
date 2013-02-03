@@ -9,17 +9,24 @@ use Getopt::Long;
 use File::Spec;
 use File::Path qw/remove_tree/;
 
+
 ### args/flags
 pod2usage("$0: No files given.") if ((@ARGV == 0) && (-t STDIN));
 
-my ($verbose);
+my ($verbose, $dump_connect, $write_abunds);
 my $max_size = 1000000;
-my $min_part_size = 10;
+my $min_part_size = 5;
 my $status_int = 1000000;
+my $inflation = 5;				# inflation param default
+my $threads = 1;
 GetOptions(
 	   "max-size=i" => \$max_size,						# max group size
 	   "min-partition-size=i" => \$min_part_size,		# min partition size worth keeping
-	   "status=i" => \$status_int,						# how often to provide a status update
+	   "status=i" => \$status_int,						# mcl inflation param
+	   "threads=i" => \$threads,						# how often to provide a status update
+	   "Inflation=f" => \$inflation,					# number of threads for mcl
+	   "dump" => \$dump_connect,						# dumping connected graph (for running mcl outside of script)
+	   "abundance" => \$write_abunds,						# writing cluster abundance distribution
 	   "verbose" => \$verbose,
 	   "help|?" => \&pod2usage # Help
 	   );
@@ -27,155 +34,290 @@ GetOptions(
 ### I/O error & defaults
 die " ERROR: provide a *part file\n" if ! $ARGV[0];
 
-### MAIN
-my $basename = sort_pairs($ARGV[0]);
-my $parts_r = count_parts($basename);
-my $groups_r = parts_in_groups($parts_r, $max_size, $min_part_size);
-write_groups($groups_r, $basename);
+### MAIN	
+# finding paired-end reads and making connection hash #
+my $basename = sort_pairs($ARGV[0]);													# parsing out pairs
+my ($connect_r, $abunds_r) = partition_connection_hash($basename, $min_part_size);		# making a parition graph for loading into mcl
+dump_connect_hash($connect_r, $basename) if $dump_connect;
+
+# mcl clustering #
+my $mcl_out = call_mcl($connect_r, $basename, $inflation, $threads);					# clustering w/ mcl
+my ($clusters_r, $cluster_abunds_r) = load_mcl_out($mcl_out, $abunds_r);
+write_cluster_abunds($cluster_abunds_r, $basename) if $write_abunds;
+
+# grouping clustering for writing out read files #
+my ($groups_r, $group_abunds_r) = parts_in_groups($clusters_r, $cluster_abunds_r, $max_size);				# placing paritions into groups
+write_groups($groups_r, $group_abunds_r, $basename);
+
 
 ### Subroutines
 sub write_groups{
-# writing out partitions in groups #
-	my ($groups_r, $basename) = @_;
-	
-	# getting unique groups #
-	my %ugroups = map{$_, 1} values %$groups_r; 
+# writing out groups (group => clusters => partitions) #
+	my ($groups_r, $group_abunds_r, $basename) = @_;
 	
 	# status #
-	print STDERR " Number of groups: ", scalar keys %ugroups, "\n";
-
-	# output dir #
-	my $dirname = $basename . "_groups";
-	remove_tree("$dirname") if -d "$dirname";		# removing old dir if present
-	mkdir "$dirname"; 
-	print STDERR " Writing files to: $dirname\n";
-
-	# status #
-	print STDERR " Writting out paired reads\n";
+	print STDERR "...Writing group files\n";
 	
-	# opening filehandles for each group #
-	my %fh;
-	foreach my $group (keys %ugroups){
-		open $fh{$group}, ">$dirname/group$group-pair.fna" or die $!;
-		}
-	
-	# going through paired reads and writing to group #
+	# I/O #
+	## read paired-end reads ##
 	open PAIR, "$basename-pair.fna" or die $!;
-	while(<PAIR>){
-		my @line = split /\t/;
-		my $line2 = <PAIR>;
-		my $line3 = <PAIR>;
-		my $line4 = <PAIR>;
-		
-		# 2nd pair placed w/ first #
-		next if ! exists $$groups_r{$line[1]}; 		# if read is < cutoff
-		print {$fh{ $$groups_r{$line[1]} }} join("", join("\t", @line), $line2, $line3, $line4);
-		}
 
-	# closing filehandles #
-	close PAIR;
-	map{ close $fh{$_} } keys %fh;
+	## making directory for group files ##
+	remove_tree("$basename\_groups") if -d "$basename\_groups";
+	mkdir "$basename\_groups" or die $!;
+	my %outfh;
+	map{ open $outfh{$_}, ">$basename\_groups/$basename\_g$_.fna" or die $! } keys %$group_abunds_r;
 	
+	open LOG, ">$basename.log" or die $!;
+	
+	# writing to group files #
+	my %stats;
+	while(<PAIR>){
+
+		# loading lines #
+		my @pairs;
+		push( @pairs, split /\t|\n/ );
+		for my $i (0..2){
+			my $line = <PAIR>;
+			push( @pairs, split /\t|\n/, $line);
+			}
+		
+		if(exists $$groups_r{$pairs[1]} && exists $$groups_r{$pairs[4]}){		# if partitions of pair are both in groups (i.e. > min partition cutoff)
+			if( $$groups_r{$pairs[1]} == $$groups_r{$pairs[4]} ){		# pair partitions are not in the same group
+				print {$outfh{ $$groups_r{ $pairs[1]} }} 
+					join("\n", join("\t", @pairs[0..1]), $pairs[2], join("\t", @pairs[3..4]), $pairs[5]), "\n";
+				}
+			else{
+				print LOG "Different groups:\t", join(" <-> ", $$groups_r{$pairs[1]}, $$groups_r{$pairs[4]}), "\n";
+				}
+			}
+		else{
+			print LOG "Not in a group; partition < '-min':\t", join("\t", @pairs[0..1]), "\n"
+				if ! exists $$groups_r{$pairs[1]};
+			print LOG "Not in a group; partition < '-min':\t", join("\t", @pairs[3..4]), "\n"
+				if ! exists $$groups_r{$pairs[4]};
+			}
+		}
+	
+	# closing #
+	close PAIR;
+	map{ close $outfh{$_} or die $! } keys %$group_abunds_r;
+	close LOG;
+	
+	print STDERR "\tGroup files written to: '$basename\_groups/'\n";
+	print STDERR "\tLog file written to: '$basename.log'\n";
+	}
+
+sub dump_connect_hash{
+# writting out connected hash to file for running mcl outside of script #
+	my ($connect_r, $basename) = @_;
+
+	# making an output file name #
+	my $dump_out = $basename . "_abc.txt";
 	
 	# status #
-	print STDERR " Writting out singleton reads\n";
+	print STDERR "...Dumping partition connection hash: '$dump_out'\n";
 	
-	# going through singletons #
-	foreach my $group (keys %ugroups){
-		open $fh{$group}, ">$dirname/group$group-single.fna" or die $!;
-		}
+	open OUT, ">$dump_out" or die $!;
 	
-	# going through paired reads and writing to group #
-	open SING, "$basename-single.fna" or die $!;
-	while(<SING>){
-		my @line = split /\t/;
-		my $line2 = <SING>;
-		
-		next if ! exists $$groups_r{$line[1]}; 		# if read is < cutoff
-		print {$fh{ $$groups_r{$line[1]} }} join("", join("\t", @line), $line2);
-		}
+	# running mcl #
+	foreach my $c1 (keys %$connect_r){
+		foreach my $c2 (keys %{$$connect_r{$c1}}){
+			print OUT join(" ", $c1, $c2, $$connect_r{$c1}{$c2}), "\n";
+			}
+		}	
+	close OUT;
 	
-	
-	# closing filehandles #
-	close SING;
-	map{ close $fh{$_} } keys %fh;
-	
-	
+	print STDERR "\tConnection hash dumped. Exiting\n";
+	exit;
 	}
 
 sub parts_in_groups{
-# placing partitions in groups #
-	my ($parts_r, $max_size, $min_part_size) = @_;
+# placing partition clusters in groups based on max size #
+	my ($clusters_r, $cluster_abunds_r, $max_size) = @_;
 
  	# status #
-	print STDERR " Grouping partitions\n";
+	print STDERR "...Grouping partition clusters\n";
 
-	# number of groups depends on $max_size
+	# grouping #
 	my %groups;
-	my $group_cnt;			# tracking total
-	foreach my $part (keys %$parts_r){
-		# filtering low abundant reads #
-		next if $$parts_r{$part} < $min_part_size;
+	my %group_abunds;
+	my $group_cnt = 0;
+	foreach my $cID (sort {$$cluster_abunds_r{$b} <=> $$cluster_abunds_r{$a}} 
+		keys %$cluster_abunds_r){
 		
-		# loading groups #
-		$group_cnt += $$parts_r{$part};
-		$groups{$part} = int($group_cnt / $max_size);		# part -> group_number
+		$group_cnt += $$cluster_abunds_r{$cID};						# summing cluster abundances, groupID defined by max_size
+		
+		foreach my $part (keys %{$$clusters_r{$cID}} ){				# all partitions in cluster
+			my $gID = int($group_cnt / $max_size);
+			$groups{$part} = $gID; 									# partition => group
+			$group_abunds{$gID}++; 									# summing groups
+			}
 		}
-	
-	return \%groups;
-	}
-
-sub count_parts{
-### counting partitions in each file ###
-	my ($basename) = @_;
 
 	# status #
-	print STDERR " Counting partitions\n";
+	print STDERR "\tNumber of groups: ", scalar keys %group_abunds, "\n";
+	die " ERROR: Number of groups exceeds 1000\n" if (scalar keys %group_abunds) > 1000;
+	
+		#print Dumper %groups; exit;
+	return \%groups, \%group_abunds;			# partition => group
+	}
 
-	# counting pairs #	
+sub write_cluster_abunds{
+	my ($clusters_abunds_r, $basename) = @_;
+	
+	# status #
+	print STDERR "...Writing cluster abundances distribution\n";
+	
+	open OUT, ">$basename\_clust-abund.txt";
+	print OUT join("\t", qw/Cluster_id N_partitions/), "\n";
+	foreach my $cID (sort {$$cluster_abunds_r{$b} <=> $$cluster_abunds_r{$a}} 
+		keys %$cluster_abunds_r){
+		print OUT join("\t", $cID, $$cluster_abunds_r{$cID}), "\n";
+		}
+	close OUT;
+	
+	print STDERR "\tFile written to: $basename\_clust-abund.txt\n";
+	}
+
+sub load_mcl_out{
+# loading mcl output into a hash #
+	my ($mcl_out, $abunds_r) = @_;
+	
+	# status #
+	print STDERR "\n...Loading mcl output\n";
+	
+	open IN, $mcl_out or die $!;
+	my %clusters;
+	my %cluster_abunds;
+	while(<IN>){
+		chomp;
+		my @line = split /\t/;
+		map{ $clusters{$.}{$_} = 1 } @line;			# all clusterID => partID
+		map{ $cluster_abunds{$.} += $$abunds_r{$_} } @line;		# clusterID => sum(partitions abundances)
+		}
+	close IN;
+	
+	# status #
+	print STDERR "\tNumber of clusters: ", scalar keys %cluster_abunds, "\n";
+		#print Dumper %cluster_abunds; exit;
+		#print Dumper %clusters; exit;
+	return \%clusters, \%cluster_abunds;				# partition => clusterID
+	}
+
+sub call_mcl{
+# calling mcl for clustering #
+	my ($connect_r, $basename, $inflation, $threads) = @_;
+	
+	# status #
+	print STDERR "...Calling mcl\n\n";
+	
+	# making an output file name #
+	my $mcl_out = $basename . "_mcl.txt";
+	
+	my $cmd = "mcl - --abc -I $inflation -te $threads -o $mcl_out";
+	print STDERR $cmd, "\n";
+	open PIPE, " | $cmd" or die $!;
+	
+	# running mcl #
+	foreach my $c1 (keys %$connect_r){
+		foreach my $c2 (keys %{$$connect_r{$c1}}){
+			print PIPE join(" ", $c1, $c2, $$connect_r{$c1}{$c2}), "\n";
+			}
+		}
+	close PIPE;
+
+	return $mcl_out;
+	}
+
+sub partition_connection_hash{
+# merging partitions based on paired-end reads #
+# getting abundances of each partition #
+	my ($basename, $min_part_size) = @_;
+	
+	# status #
+	print STDERR "...Getting partition abundances\n";
+	
+	# reading pair file and making pair hash #
 	open PAIR, "$basename-pair.fna" or die $!;
 
-	my %parts;
+	# making connectedness hash #
+	#my $max_connections = 0;		# for normalizing connections
+	my %abunds;
 	while(<PAIR>){
-		
+		chomp;
 		# status #
 		if(($. -1) % $status_int == 0){
-			print STDERR " lines processed: ", ($. - 1) / 2, "\n";
+			print STDERR "\tRead pairs processed: ", ($. - 1) / 2, "\n";
+			}
+	
+		# loading lines #
+		my @line1 = split /\t/;
+		my $line2 = <PAIR>;
+		my @line3 = split /\t|\n/, <PAIR>;
+		my $line4 = <PAIR>;
+		
+		# summing paritition abundances #
+		$abunds{$line1[1]}++;					# number of reads per partition
+		$abunds{$line3[1]}++;
+		
+		}
+	
+	seek(PAIR, 0, 0);
+
+	# status #
+	print STDERR "...Making connectedness hash\n";
+
+	my %connect;
+	my $line_cnt = 0;
+	while(<PAIR>){
+		chomp;
+		# status #
+		if(($line_cnt) % $status_int == 0){
+			print STDERR "\tRead pairs processed: ", ($line_cnt) / 2, "\n";
+			}
+	
+		# loading lines #
+		my @line1 = split /\t/;
+		my $line2 = <PAIR>;
+		my @line3 = split /\t|\n/, <PAIR>;
+		my $line4 = <PAIR>;
+		
+		# summing paritition abundances; not including partition if < min abundance #
+		if ($abunds{$line1[1]} >= $min_part_size && $abunds{$line3[1]} >= $min_part_size){
+			$connect{$line1[1]}{$line3[1]}++ ;
 			}
 		
-		my @line = split /\t/;
-		$parts{$line[1]} += 2;
-		for my $i (0..2){		# skipping 2nd in pair
-			my $line = <PAIR>;
-			}
+		# reads processed
+		$line_cnt += 4;
 		}
+
 	close PAIR;
 	
-	# counting singles #
-	open SING, "$basename-single.fna" or die $!;
-	while(<SING>){
-		
-		# status #
-		if(($. -1) % $status_int == 0){
-			print STDERR " lines processed: ", ($. - 1) / 2, "\n";
-			}
-		
-		my @line = split /\t/;
-		my $nline = <SING>;
-		$parts{$line[1]}++;
+	# getting number of partitions below cutoff #
+	my $below_cnt = 0;
+	foreach my $part (keys %abunds){
+		$below_cnt++ if $abunds{$part} < $min_part_size;
 		}
-	close SING;
-
-
-	return \%parts;	
+	
+	# stats #
+	print STDERR "\n### Partition filtering stats ###\n";
+	print STDERR "Number of partitions: ", scalar keys %abunds, "\n";
+	print STDERR "Number of partitions < '-min' cutoff: $below_cnt\n";
+	print STDERR "% partitions remaining: ", 
+		sprintf("%.0f", ((scalar keys %abunds) - $below_cnt) / (scalar keys %abunds) * 100), "%\n\n";
+	
+		#print Dumper %connect; exit;			# partID => number of paired-end connections
+		#print Dumper %abunds; exit;
+	return \%connect, \%abunds;
 	}
 
 sub sort_pairs{
-# counting number of reads in each partition #
+# parsing out existing paired-end reads #
 	my ($infile) = @_;
 	
 	# status #
-	print STDERR " Splitting reads into pairs and singletons\n";
+	print STDERR "...Splitting reads into pairs and singletons\n";
 	
 	# I/O #
 	(my $basename = $infile) =~ s/\.[^\.]+$|$//;
@@ -184,23 +326,27 @@ sub sort_pairs{
 	open SING, ">$basename-single.fna" or die $!;
 
 	my %pairs;
-	while(<IN>){
-		
-		#last if $. > 10000;
+	my $pair_cnt = 0;			# counting number of pairs
+	my $read_cnt = 0;			# total number of reads
+	while(<IN>){	
+		$read_cnt++;
 		
 		# status #
 		if(($. -1) % $status_int == 0){
-			print STDERR " lines processed: ", ($. - 1) / 2, "\n";
+			print STDERR "\tReads processed: ", ($. - 1) / 2, "\n";
 			}
 		
 		# load lines #
 		my @line = split /\//;		# header, pair, partition
+		die " ERROR: read names must be in old illumina format (>NAME/1 or >NAME/2)\n"
+			if scalar @line != 2;
 		my $nline = <IN>;
 
 		# checking for pairs; writing files #
 		if( exists $pairs{$line[0]} ){
 			print PAIR join("", $pairs{$line[0]}, join("/", @line), $nline);
 			delete $pairs{$line[0]};
+			$pair_cnt++;
 			}
 		else{
 			$pairs{$line[0]} = join("", join("/", @line), $nline);
@@ -209,59 +355,20 @@ sub sort_pairs{
 		}
 	close IN;
 	
+	# stats #
+	print STDERR "\n### Paired-reads stats ###\n";
+	print STDERR "Number of reads: $read_cnt\n";
+	print STDERR "Number of paired reads: ", $pair_cnt * 2, "\n";
+	print STDERR "% paired reads: ", sprintf("%.1f", ($pair_cnt * 2)/ $read_cnt * 100), "%\n\n";
+	
 	# writing out all singletons #
-	print STDERR " Writing out all singletons\n";
+	print STDERR "...Writing out all singletons\n";
 	print SING join("", values %pairs);
 	
 	close PAIR;
 	close SING;
 	
 	return $basename;
-	}
-
-
-
-sub find_pairs_and_write{
-	my $infile = shift;
-	
-	# I/O #
-	(my $basename = $infile) =~ s/\.[^\.]+$|$//;
-	
-	remove_tree(".$basename") if -d ".$basename";
-	mkdir ".$basename"; 
-	
-	open IN, $infile or die $!;
-	
-	# running through file #
-	my %seq_names;
-	my %parts;
-	while(<IN>){
-		my @line = split /\t|\//;		# header, pair, partition
-		
-		if(! exists($parts{$line[2]})){		# if need to make a file
-			open $parts{$line[2]}, ">.$basename/$line[2].part" or die $!;
-			
-			# writing read #
-			print {$parts{$line[2]}} $_;
-			my $nline = <IN>;
-			print {$parts{$line[2]}} $nline;
-			}
-		else{
-			print {$parts{$line[2]}} $_;
-			my $nline = <IN>;
-			print {$parts{$line[2]}} $nline;
-			}
-		
-		# checking for other pair #
-		#if(exists $seq_names{$line[1]} ){		# if paired file found 		
-		#	}
-		
-		
-		}
-	
-	# closing #
-	close IN;
-	map{ close $parts{$_} } keys %parts; 
 	}
 
 
@@ -287,7 +394,23 @@ Max group size. [1000000]
 
 =item --min-partition-size	
 
-Minimum partition size (number of reads) to retain. [10]
+Minimum partition size (number of reads) to retain for mcl clustering. [5]
+
+=item --dump
+
+Write out the table used for mcl clustering?. [FALSE]
+
+=item --threads
+
+Number of threads for mcl clustering. [1]
+
+=item --Inflation
+
+Inflation value for mcl clustering. [5]
+
+=item --abundance
+
+Write out the distribution of partitions in each cluster? [FALSE] 
 
 =item -s 
 
@@ -305,20 +428,31 @@ perldoc extract-partitions-paired.pl
 
 =head1 DESCRIPTION
 
-The script is basically the same as extract-partitions.py, but it retains paired-end
-reads in 1 group. 
+Extract the partitions and retain paired-end reads for assembly with an assembler that
+requires paired-end reads.
 
-The reasoning is that paired-end reads should be from the same molecule and thus should
-come from the same organism.
+Partitions are clustered by paired-end reads spanning partitions. mcl is used for 
+the clusterin process with a high default inflation parameter.
 
-The reads are parsed by group and by singleton or paired status, so that velvet or idba_ud
-can be used on the reads.
+The clusters of partitions are then grouped for writing to files (--min-partition-size).
 
+=head2 Reasoning for clustering partitions
+
+Paired-end reads should be from the same molecule and thus should
+come from the same organism. Sequencing or khmer partitioning artifacts could cause
+paired-end reads to span partitions seperating different organisms. If this occurs too often,
+all of the partitions will agglomerate. You may have to adjust the inflation parameter if this
+happens.
 
 =head1 EXAMPLES
 
-$ extract-partitions-paired.pl iowa-corn-50m.fa.gz.part
-# output to ./iowa-corn-50m.fa.gz_groups/
+=head2 Basic usage
+
+extract-partitions-paired.pl iowa-corn-50m.fa.gz.part
+
+=head2 Dumping table for mcl clustering
+
+extract-partitions-paired.pl -d iowa-corn-50m.fa.gz.part
 
 =head1 AUTHOR
 
@@ -326,7 +460,7 @@ Nick Youngblut <nyoungb2@illinois.edu>
 
 =head1 AVAILABILITY
 
-sharchaea.life.uiuc.edu:/home/git/
+sharchaea.life.uiuc.edu:/home/git/metagenome_assembly/
 
 =head1 COPYRIGHT
 
