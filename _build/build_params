@@ -73,6 +73,7 @@ do{ my $x = [
                               '/opt/iCORN-v0.97/',
                               '/opt/RAST_api/lib/',
                               '/opt/RepeatMasker/',
+                              '/opt/mugsy/perllibs/',
                               '/usr/local/lib/perl/5.14.2/',
                               '/opt/RAST_api/lib'
                             ],

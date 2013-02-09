@@ -123,8 +123,8 @@
 .rm #[ #] #H #V #F C
 .\" ========================================================================
 .\"
-.IX Title "EXTRACT-PARTITIONS-PAIRED 1p"
-.TH EXTRACT-PARTITIONS-PAIRED 1p "2013-01-14" "perl v5.14.2" "User Contributed Perl Documentation"
+.IX Title "EXTRACT-PARTITIONS-PAIRED 1"
+.TH EXTRACT-PARTITIONS-PAIRED 1 "2013-02-03" "perl v5.14.2" "User Contributed Perl Documentation"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -141,7 +141,19 @@ extract\-partitions\-paired.pl [options] file.part
 Max group size. [1000000]
 .IP "\-\-min\-partition\-size" 4
 .IX Item "--min-partition-size"
-Minimum partition size (number of reads) to retain. [10]
+Minimum partition size (number of reads) to retain for mcl clustering. [5]
+.IP "\-\-dump" 4
+.IX Item "--dump"
+Write out the table used for mcl clustering?. [\s-1FALSE\s0]
+.IP "\-\-threads" 4
+.IX Item "--threads"
+Number of threads for mcl clustering. [1]
+.IP "\-\-Inflation" 4
+.IX Item "--Inflation"
+Inflation value for mcl clustering. [5]
+.IP "\-\-abundance" 4
+.IX Item "--abundance"
+Write out the distribution of partitions in each cluster? [\s-1FALSE\s0]
 .IP "\-s" 4
 .IX Item "-s"
 Status output interval (number of reads). [1000000]
@@ -153,24 +165,34 @@ This help message
 perldoc extract\-partitions\-paired.pl
 .SH "DESCRIPTION"
 .IX Header "DESCRIPTION"
-The script is basically the same as extract\-partitions.py, but it retains paired-end
-reads in 1 group.
+Extract the partitions and retain paired-end reads for assembly with an assembler that
+requires paired-end reads.
 .PP
-The reasoning is that paired-end reads should be from the same molecule and thus should
-come from the same organism.
+Partitions are clustered by paired-end reads spanning partitions. mcl is used for 
+the clusterin process with a high default inflation parameter.
 .PP
-The reads are parsed by group and by singleton or paired status, so that velvet or idba_ud
-can be used on the reads.
+The clusters of partitions are then grouped for writing to files (\-\-min\-partition\-size).
+.SS "Reasoning for clustering partitions"
+.IX Subsection "Reasoning for clustering partitions"
+Paired-end reads should be from the same molecule and thus should
+come from the same organism. Sequencing or khmer partitioning artifacts could cause
+paired-end reads to span partitions seperating different organisms. If this occurs too often,
+all of the partitions will agglomerate. You may have to adjust the inflation parameter if this
+happens.
 .SH "EXAMPLES"
 .IX Header "EXAMPLES"
-$ extract\-partitions\-paired.pl iowa\-corn\-50m.fa.gz.part
-# output to ./iowa\-corn\-50m.fa.gz_groups/
+.SS "Basic usage"
+.IX Subsection "Basic usage"
+extract\-partitions\-paired.pl iowa\-corn\-50m.fa.gz.part
+.SS "Dumping table for mcl clustering"
+.IX Subsection "Dumping table for mcl clustering"
+extract\-partitions\-paired.pl \-d iowa\-corn\-50m.fa.gz.part
 .SH "AUTHOR"
 .IX Header "AUTHOR"
 Nick Youngblut <nyoungb2@illinois.edu>
 .SH "AVAILABILITY"
 .IX Header "AVAILABILITY"
-sharchaea.life.uiuc.edu:/home/git/
+sharchaea.life.uiuc.edu:/home/git/metagenome_assembly/
 .SH "COPYRIGHT"
 .IX Header "COPYRIGHT"
 Copyright 2010, 2011
