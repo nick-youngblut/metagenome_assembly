@@ -19,14 +19,16 @@ my $min_part_size = 5;
 my $status_int = 1000000;
 my $inflation = 5;				# inflation param default
 my $threads = 1;
+my $cluster_size_cut = 1;
 GetOptions(
 	   "max-size=i" => \$max_size,						# max group size
 	   "min-partition-size=i" => \$min_part_size,		# min partition size worth keeping
-	   "status=i" => \$status_int,						# mcl inflation param
-	   "threads=i" => \$threads,						# how often to provide a status update
-	   "Inflation=f" => \$inflation,					# number of threads for mcl
+	   "status=i" => \$status_int,						# how often to provide a status update
+	   "threads=i" => \$threads,						# number of threads for mcl
+	   "Inflation=f" => \$inflation,					# mcl inflation param
 	   "dump" => \$dump_connect,						# dumping connected graph (for running mcl outside of script)
-	   "abundance" => \$write_abunds,						# writing cluster abundance distribution
+	   "write-abundance" => \$write_abunds,				# writing cluster abundance distribution
+	   "cluster-size=i" => \$cluster_size_cut,			# cluster size cutoff (number of partitions
 	   "verbose" => \$verbose,
 	   "help|?" => \&pod2usage # Help
 	   );
@@ -46,7 +48,7 @@ my ($clusters_r, $cluster_abunds_r) = load_mcl_out($mcl_out, $abunds_r);
 write_cluster_abunds($cluster_abunds_r, $basename) if $write_abunds;
 
 # grouping clustering for writing out read files #
-my ($groups_r, $group_abunds_r) = parts_in_groups($clusters_r, $cluster_abunds_r, $max_size);				# placing paritions into groups
+my ($groups_r, $group_abunds_r) = parts_in_groups($clusters_r, $cluster_abunds_r, $max_size, $cluster_size_cut);				# placing paritions into groups
 write_groups($groups_r, $group_abunds_r, $basename);
 
 
@@ -134,7 +136,10 @@ sub dump_connect_hash{
 
 sub parts_in_groups{
 # placing partition clusters in groups based on max size #
-	my ($clusters_r, $cluster_abunds_r, $max_size) = @_;
+	my ($clusters_r, $cluster_abunds_r, $max_size, $cluster_size_cut) = @_;
+	
+	#print Dumper $clusters_r; exit;
+	# $clusters_r{clusterid}{partID}=>1
 
  	# status #
 	print STDERR "...Grouping partition clusters\n";
@@ -143,8 +148,14 @@ sub parts_in_groups{
 	my %groups;
 	my %group_abunds;
 	my $group_cnt = 0;
+	my $cut_cnt = 0;
 	foreach my $cID (sort {$$cluster_abunds_r{$b} <=> $$cluster_abunds_r{$a}} 
 		keys %$cluster_abunds_r){
+		
+		if ( (scalar keys %{$$clusters_r{$cID}}) < $cluster_size_cut){ 		# 
+			$cut_cnt++;
+			next;
+			}
 		
 		$group_cnt += $$cluster_abunds_r{$cID};						# summing cluster abundances, groupID defined by max_size
 		
@@ -156,8 +167,10 @@ sub parts_in_groups{
 		}
 
 	# status #
+	print STDERR "\tNumber of clusters < cutoff (removed): $cut_cnt\n";
+	print STDERR "\tNumber of clusters remaining: ", (scalar keys %$cluster_abunds_r) - $cut_cnt, "\n";
 	print STDERR "\tNumber of groups: ", scalar keys %group_abunds, "\n";
-	die " ERROR: Number of groups exceeds 1000\n" if (scalar keys %group_abunds) > 1000;
+	print STDERR " WARNING: Number of groups exceeds 1000\n" if (scalar keys %group_abunds) > 1000;
 	
 		#print Dumper %groups; exit;
 	return \%groups, \%group_abunds;			# partition => group
@@ -193,7 +206,7 @@ sub load_mcl_out{
 	while(<IN>){
 		chomp;
 		my @line = split /\t/;
-		map{ $clusters{$.}{$_} = 1 } @line;			# all clusterID => partID
+		map{ $clusters{$.}{$_} = 1 } @line;						# all clusterID => partID
 		map{ $cluster_abunds{$.} += $$abunds_r{$_} } @line;		# clusterID => sum(partitions abundances)
 		}
 	close IN;
@@ -324,9 +337,30 @@ sub sort_pairs{
 	# I/O #
 	(my $basename = $infile) =~ s/\.[^\.]+$|$//;
 	open IN, $infile or die $!;
+	
+	# checking read format #
+	my $read_format;
+	while(<IN>){
+		last if $read_format;
+		if(/ [12]:/){ # casava
+			$read_format = " "; 
+			print STDERR " Read format: Casava\n";
+			}			
+		elsif(/\/[12]/){ # illumina
+			$read_format = "/"; 
+			print STDERR " Read format: Illumina\n";
+			}			
+		else{ die "ERROR: illumina name format not recognized\n"; }
+		}
+	seek(IN, 0, 0);
+	close IN;
+	
+	# I/O; again #
+	open IN, $infile or die $!;
 	open PAIR, ">$basename-pair.fna" or die $!;
 	open SING, ">$basename-single.fna" or die $!;
 
+	# reading and sorting #
 	my %pairs;
 	my $pair_cnt = 0;			# counting number of pairs
 	my $read_cnt = 0;			# total number of reads
@@ -339,19 +373,20 @@ sub sort_pairs{
 			}
 		
 		# load lines #
-		my @line = split /\//;		# header, pair, partition
-		die " ERROR: read names must be in old illumina format (>NAME/1 or >NAME/2)\n"
-			if scalar @line != 2;
+		my @line = split /$read_format/;
+		
+		die " ERROR: read header format not recognized!\n" if scalar @line != 2;
+		
 		my $nline = <IN>;
 
 		# checking for pairs; writing files #
 		if( exists $pairs{$line[0]} ){
-			print PAIR join("", $pairs{$line[0]}, join("/", @line), $nline);
+			print PAIR join("", $pairs{$line[0]}, join("$read_format", @line), $nline);
 			delete $pairs{$line[0]};
 			$pair_cnt++;
 			}
 		else{
-			$pairs{$line[0]} = join("", join("/", @line), $nline);
+			$pairs{$line[0]} = join("", join("$read_format", @line), $nline);
 			}
 
 		}
@@ -369,6 +404,7 @@ sub sort_pairs{
 	
 	close PAIR;
 	close SING;
+	
 	
 	return $basename;
 	}
@@ -410,11 +446,15 @@ Number of threads for mcl clustering. [1]
 
 Inflation value for mcl clustering. [5]
 
-=item --abundance
+=item --write-abundance
 
 Write out the distribution of partitions in each cluster? [FALSE] 
 
-=item -s 
+=item --cluster-size
+
+Cutoff for number of partitions in a cluster. [1]
+
+=item --status 
 
 Status output interval (number of reads). [1000000]
 
@@ -455,6 +495,10 @@ extract-partitions-paired.pl iowa-corn-50m.fa.gz.part
 =head2 Dumping table for mcl clustering
 
 extract-partitions-paired.pl -d iowa-corn-50m.fa.gz.part
+
+=head2 Removing all singleton partitions
+
+extract-partitions-paired.pl -c 2 iowa-corn-50m.fa.gz.part
 
 =head1 AUTHOR
 

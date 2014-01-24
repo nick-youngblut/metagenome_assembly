@@ -124,7 +124,7 @@
 .\" ========================================================================
 .\"
 .IX Title "EXTRACT-PARTITIONS-PAIRED 1"
-.TH EXTRACT-PARTITIONS-PAIRED 1 "2013-02-03" "perl v5.14.2" "User Contributed Perl Documentation"
+.TH EXTRACT-PARTITIONS-PAIRED 1 "2013-02-09" "perl v5.14.2" "User Contributed Perl Documentation"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -151,11 +151,14 @@ Number of threads for mcl clustering. [1]
 .IP "\-\-Inflation" 4
 .IX Item "--Inflation"
 Inflation value for mcl clustering. [5]
-.IP "\-\-abundance" 4
-.IX Item "--abundance"
+.IP "\-\-write\-abundance" 4
+.IX Item "--write-abundance"
 Write out the distribution of partitions in each cluster? [\s-1FALSE\s0]
-.IP "\-s" 4
-.IX Item "-s"
+.IP "\-\-cluster\-size" 4
+.IX Item "--cluster-size"
+Cutoff for number of partitions in a cluster. [1]
+.IP "\-\-status" 4
+.IX Item "--status"
 Status output interval (number of reads). [1000000]
 .IP "\-h" 4
 .IX Item "-h"
@@ -187,6 +190,9 @@ extract\-partitions\-paired.pl iowa\-corn\-50m.fa.gz.part
 .SS "Dumping table for mcl clustering"
 .IX Subsection "Dumping table for mcl clustering"
 extract\-partitions\-paired.pl \-d iowa\-corn\-50m.fa.gz.part
+.SS "Removing all singleton partitions"
+.IX Subsection "Removing all singleton partitions"
+extract\-partitions\-paired.pl \-c 2 iowa\-corn\-50m.fa.gz.part
 .SH "AUTHOR"
 .IX Header "AUTHOR"
 Nick Youngblut <nyoungb2@illinois.edu>
